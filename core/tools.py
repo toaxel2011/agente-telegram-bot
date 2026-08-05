@@ -1,7 +1,29 @@
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
+from config.settings import settings
 from database.repositories.task_repo import TaskRepository
 from services.weather_service import obtener_clima_async
+
+# Caracteres especiales de Markdown V1 de Telegram; se escapan para que
+# un título con "_" o "*" no rompa el parseo del mensaje.
+def _escapar_md(texto: str) -> str:
+    for ch in ("_", "*", "`", "["):
+        texto = texto.replace(ch, "\\" + ch)
+    return texto
+
+def _formatear_fecha(dt: datetime) -> str:
+    """Devuelve la fecha en formato humano relativo (Hoy/Mañana/DD/MM)."""
+    hoy = datetime.now(settings.TIMEZONE).date()
+    dias = (dt.date() - hoy).days
+    hora = dt.strftime("%H:%M")
+    if dias == 0:
+        return f"Hoy {hora}"
+    if dias == 1:
+        return f"Mañana {hora}"
+    if dias == -1:
+        return f"Ayer {hora}"
+    return dt.strftime("%d/%m %H:%M")
 
 # --- ESQUEMAS DE PYDANTIC PARA LAS HERRAMIENTAS ---
 
@@ -45,14 +67,17 @@ async def tool_crear_tarea(user_id: int, args: dict) -> str:
 async def tool_listar_tareas(user_id: int, args: dict) -> str:
     tareas = await TaskRepository.obtener_tareas_pendientes(user_id)
     if not tareas:
-        return "📋 No tienes tareas pendientes actualmente."
-    
-    res = "📋 **Tus Tareas Pendientes:**\n"
+        return "📋 ¡No tienes tareas pendientes! 🎉"
+
+    # Las tareas ya vienen ordenadas por fecha ascendente desde el repositorio.
+    lineas = [f"📋 *Tus tareas pendientes ({len(tareas)}):*", ""]
     for t in tareas:
-        prio = "🔺" if t['prioridad'] == 'alta' else "⏳"
-        fecha_str = t['fecha_hora'].strftime("%Y-%m-%d %H:%M")
-        res += f"  • #{t['id']} - {t['titulo']} ({fecha_str}) {prio}\n"
-    return res
+        prio = "🔺" if t["prioridad"] == "alta" else "⏳"
+        fecha = _formatear_fecha(t["fecha_hora"])
+        titulo = _escapar_md(t["titulo"])
+        lineas.append(f"{prio} `#{t['id']}` · {titulo}\n     🗓 {fecha}")
+    lineas.append("\n_Completa una con:_ \"marca la #ID como hecha\".")
+    return "\n".join(lineas)
 
 async def tool_completar_tarea(user_id: int, args: dict) -> str:
     try:

@@ -70,10 +70,15 @@ class AgenteIA:
                 # Registrar la intención del asistente en la cadena de mensajes
                 messages.append(response_message)
 
+                # Herramientas cuyo resultado se muestra tal cual (formato determinista),
+                # sin dejar que el modelo lo parafrasee en una segunda llamada.
+                TOOLS_SALIDA_DIRECTA = {"listar_tareas"}
+                respuesta_directa = None
+
                 for tool_call in tool_calls:
                     function_name = tool_call.function.name
                     function_args = json.loads(tool_call.function.arguments)
-                    
+
                     logger.info(f"🤖 Agente ejecutando Tool '{function_name}' para usuario {user_id} con args: {function_args}")
 
                     # Ejecutar la herramienta correspondiente
@@ -83,6 +88,9 @@ class AgenteIA:
                     else:
                         resultado_tool = f"Error: La herramienta '{function_name}' no existe."
 
+                    if function_name in TOOLS_SALIDA_DIRECTA:
+                        respuesta_directa = resultado_tool
+
                     # Devolver el resultado de la herramienta al modelo
                     messages.append({
                         "tool_call_id": tool_call.id,
@@ -91,13 +99,17 @@ class AgenteIA:
                         "content": resultado_tool,
                     })
 
-                # 4. Segunda llamada al modelo para generar la respuesta final natural para el usuario
-                segunda_respuesta = await groq_service.client.chat.completions.create(
-                    model=settings.MODEL_NAME,
-                    messages=messages,
-                    temperature=settings.TEMPERATURE
-                )
-                respuesta_final = segunda_respuesta.choices[0].message.content
+                if respuesta_directa is not None:
+                    # 4a. Mostrar la lista con su formato exacto, sin reescritura del modelo.
+                    respuesta_final = respuesta_directa
+                else:
+                    # 4b. Segunda llamada al modelo para generar la respuesta final natural.
+                    segunda_respuesta = await groq_service.client.chat.completions.create(
+                        model=settings.MODEL_NAME,
+                        messages=messages,
+                        temperature=settings.TEMPERATURE
+                    )
+                    respuesta_final = segunda_respuesta.choices[0].message.content
             else:
                 # Si no requirió herramientas, es una conversación directa
                 respuesta_final = response_message.content
