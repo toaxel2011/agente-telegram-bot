@@ -65,6 +65,12 @@ class AgenteIA:
             response_message = response.choices[0].message
             tool_calls = response_message.tool_calls
 
+            # Texto que se guardará en el historial para el turno del asistente.
+            # Por defecto es la respuesta final, pero para salidas deterministas
+            # largas (p. ej. la lista de tareas) guardamos un resumen corto para
+            # NO contaminar el contexto y evitar que el modelo repita la lista.
+            resumen_para_historial = None
+
             # 3. Verificar si el Agente decidió ejecutar una o varias herramientas
             if tool_calls:
                 # Registrar la intención del asistente en la cadena de mensajes
@@ -102,6 +108,7 @@ class AgenteIA:
                 if respuesta_directa is not None:
                     # 4a. Mostrar la lista con su formato exacto, sin reescritura del modelo.
                     respuesta_final = respuesta_directa
+                    resumen_para_historial = "(Le mostré al usuario su lista actualizada de tareas pendientes.)"
                 else:
                     # 4b. Segunda llamada al modelo para generar la respuesta final natural.
                     segunda_respuesta = await groq_service.client.chat.completions.create(
@@ -116,7 +123,7 @@ class AgenteIA:
 
             # 5. Guardar la interacción en la memoria conversacional
             self._agregar_al_historial(user_id, "user", texto_usuario)
-            self._agregar_al_historial(user_id, "assistant", respuesta_final)
+            self._agregar_al_historial(user_id, "assistant", resumen_para_historial or respuesta_final)
 
             return respuesta_final
 
