@@ -25,7 +25,7 @@ async def daily_summary_job(context: ContextTypes.DEFAULT_TYPE):
             clima_text = await obtener_clima_async(ciudad)
 
             # 2. Obtener tareas pendientes
-            tareas = await TaskRepository.listar_pendientes(uid)
+            tareas = await TaskRepository.obtener_tareas_pendientes(uid)
 
             resumen = f"🌅 **¡Buenos días! Tu Resumen del Día**\n\n{clima_text}\n\n"
             if tareas:

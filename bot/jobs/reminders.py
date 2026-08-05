@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from telegram.ext import ContextTypes
+from config.settings import settings
 from database.repositories.task_repo import TaskRepository
 
 logger = logging.getLogger(__name__)
@@ -10,7 +11,9 @@ async def check_reminders_job(context: ContextTypes.DEFAULT_TYPE):
     Tarea programada que revisa cada minuto si hay recordatorios pendientes.
     """
     try:
-        ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+        # Las tareas se guardan naive en hora local (America/Caracas),
+        # así que comparamos contra la hora local, no UTC.
+        ahora = datetime.now(settings.TIMEZONE).replace(tzinfo=None)
         tareas = await TaskRepository.obtener_recordatorios_pendientes(ahora)
 
         for tarea in tareas:

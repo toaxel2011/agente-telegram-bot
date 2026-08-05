@@ -29,7 +29,7 @@ async def tool_crear_tarea(user_id: int, args: dict) -> str:
         from datetime import datetime
         dt = datetime.strptime(data.fecha_hora, "%Y-%m-%d %H:%M")
         
-        tarea_id = await TaskRepository.crear_tarea(
+        tarea = await TaskRepository.crear_tarea(
             user_id=user_id,
             titulo=data.titulo,
             fecha_hora=dt,
@@ -37,12 +37,13 @@ async def tool_crear_tarea(user_id: int, args: dict) -> str:
             recurrencia=data.recurrencia,
             prioridad=data.prioridad
         )
+        tarea_id = tarea["id"] if tarea else "?"
         return f"✅ Tarea #{tarea_id} creada exitosamente: '{data.titulo}' para el {data.fecha_hora}."
     except Exception as e:
         return f"❌ Error al crear la tarea: {str(e)}"
 
 async def tool_listar_tareas(user_id: int, args: dict) -> str:
-    tareas = await TaskRepository.listar_pendientes(user_id)
+    tareas = await TaskRepository.obtener_tareas_pendientes(user_id)
     if not tareas:
         return "📋 No tienes tareas pendientes actualmente."
     
